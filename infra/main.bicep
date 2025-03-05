@@ -9,20 +9,13 @@ param environmentName string
 @description('Primary location for all resources')
 param location string
 
-// openai resouce region
-@description('Region for the OpenAI resource')
-@allowed(['eastus2', 'westus'])
-param openaiRegion string = 'westus'
+@description('Use Private Endpoint')
+param usePrivateEndpoint bool = false
 
-// deployment name of the openai resource
-@description('Deployment name of the OpenAI resource')
-param deploymentName string = 'gpt-4o'
-
-// deployment version of the openai resource
-@description('Deployment version of the OpenAI resource')
-param deploymentVersion string = '2024-05-13'
-
-var abbrs = loadJsonContent('./abbreviations.json')
+// public network access
+@description('Public network access value for all deployed resources')
+@allowed(['Enabled', 'Disabled'])
+param publicNetworkAccess string = 'Enabled'
 
 // Tags that should be applied to all resources.
 // 
@@ -44,45 +37,27 @@ resource rg 'Microsoft.Resources/resourceGroups@2022-09-01' = {
   tags: tags
 }
 
-// Cosmos DB + App Service
+// Cosmos DB + App Service + Azure OpenAI
 module resources './resources.bicep' = {
   name: 'resources'
   scope: rg
   params: {
     location: location
-  }
-}
-
-// Azure OpenAI
-module openai 'core/ai/cognitiveservices.bicep' = {
-  name: 'openai'
-  scope: rg
-  params: {
-    name: 'aoai${abbrs.cognitiveServicesAccounts}${resourceToken}'
-    location: openaiRegion
-    tags: tags
-    sku: {
-      name: 'S0'
-    }
-    deployments: [
-      {
-        name: 'gpt-4o'
-        model: {
-          format: 'OpenAI'
-          name: deploymentName
-          version: deploymentVersion
-        }
-        sku: {
-          name: 'Standard'
-          capacity: 100
-        }
-      }
-    ]
+    vnetName: 'vnet-${environmentName}'
+    appServicePlanTier: 'B1'
+    resourceToken: resourceToken
+    usePrivateEndpoint: usePrivateEndpoint
+    publicNetworkAccess:  publicNetworkAccess
   }
 }
 
 
-output AZURE_OPENAI_ENDPOINT string = openai.outputs.endpoint
-output AZURE_OPENAI_API_KEY string = openai.outputs.accountKey
-output DEPLOYMENT_NAME string = deploymentName
-output API_VERSION string = '2024-05-01-preview'
+output AZURE_OPENAI_ENDPOINT string = resources.outputs.AZURE_OPENAI_ENDPOINT
+output AZURE_OPENAI_API_KEY string = resources.outputs.AZURE_OPENAI_API_KEY
+
+//debug NETWORKING
+output appSubnetId string = resources.outputs.appSubnetId
+output cosmosSubnetId string = resources.outputs.cosmosSubnetId
+output aoaiSubnetId string = resources.outputs.aoaiSubnetId
+output vnetName string = resources.outputs.vnetName
+output privateEndpointIds array = resources.outputs.privateEndpointIds
