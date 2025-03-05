@@ -149,10 +149,6 @@ resource website 'Microsoft.Web/sites@2021-03-01' = {
           name: 'CosmosDb:ContainerName'
           value: containerName
         }
-        {
-          name: 'CosmosDb:PrivateEndpoint'
-          value: privateEndpoints.outputs.privateEndpointIds[1].name
-        }
       ]
     }
   }
@@ -247,11 +243,3 @@ module privateEndpoints 'private-endpoints.bicep' = if (usePrivateEndpoint) {
 
 output AZURE_OPENAI_ENDPOINT string = openai.outputs.endpoint
 output AZURE_OPENAI_API_KEY string = openai.outputs.accountKey
-
-
-//debug NETWORKING
-output appSubnetId string = isolation.outputs.appSubnetId
-output cosmosSubnetId string = isolation.outputs.cosmosSubnetId
-output aoaiSubnetId string = isolation.outputs.aoaiSubnetId
-output vnetName string = isolation.outputs.vnetName
-output privateEndpointIds array = privateEndpoints.outputs.privateEndpointIds
