@@ -17,6 +17,20 @@ param usePrivateEndpoint bool = false
 @allowed(['Enabled', 'Disabled'])
 param publicNetworkAccess string = 'Enabled'
 
+// Azure OpenAI
+// openai resouce region
+@description('Region for the OpenAI resource')
+@allowed(['eastus2', 'westus'])
+param openaiRegion string = 'westus'
+
+// deployment name of the openai resource
+@description('Deployment name of the OpenAI resource')
+param deploymentName string = 'gpt-4o'
+
+// deployment version of the openai resource
+@description('Deployment version of the OpenAI resource')
+param deploymentVersion string = '2024-05-13'
+
 // Tags that should be applied to all resources.
 // 
 // Note that 'azd-service-name' tags should be applied separately to service host resources.
@@ -25,6 +39,8 @@ param publicNetworkAccess string = 'Enabled'
 var tags = {
   'azd-env-name': environmentName
 }
+
+var abbrs = loadJsonContent('./abbreviations.json')
 
 // Generate a unique token to be used in naming resources.
 // Remove linter suppression after using.
@@ -37,20 +53,109 @@ resource rg 'Microsoft.Resources/resourceGroups@2022-09-01' = {
   tags: tags
 }
 
-// Cosmos DB + App Service + Azure OpenAI
-module resources './resources.bicep' = {
+// App Service Plan
+module hostingPlan 'core/host/appserviceplan.bicep' = {
+  name: 'hostingPlan'
+  scope: rg
+  params: {
+    location: location
+    hostingPlanName: 'todo-app${resourceToken}'
+    appServicePlanTier: 'B1'
+  }
+}
+
+// Private endpoint
+module isolation 'network-isolation.bicep' = if (usePrivateEndpoint) {
+  name: 'isolation'
+  scope: rg
+  params: {
+    location: location
+    vnetName: '${abbrs.networkVirtualNetworks}${resourceToken}'
+    appServicePlanName: hostingPlan.name
+    usePrivateEndpoint: true
+  }
+}
+
+// Azure OpenAI
+module openai 'core/ai/cognitiveservices.bicep' = {
+  name: 'openai'
+  scope: rg
+  params: {
+    name: 'aoai${abbrs.cognitiveServicesAccounts}${resourceToken}'
+    location: openaiRegion
+    sku: {
+      name: 'S0'
+    }
+    deployments: [
+      {
+        name: 'gpt-4o'
+        model: {
+          format: 'OpenAI'
+          name: deploymentName
+          version: deploymentVersion
+        }
+        sku: {
+          name: 'Standard'
+          capacity: 100
+        }
+      }
+    ]
+    publicNetworkAccess: publicNetworkAccess
+  }
+}
+
+// Cosmos DB
+module cosmosAccount 'core/database/cosmos.bicep' = {
+  name: 'cosmos'
+  scope: rg
+  params: {
+    cosmosAccountName: toLower('cosmos${abbrs.documentDBDatabaseAccounts}${resourceToken}')
+    location: location
+    publicNetworkAccess: publicNetworkAccess
+  }
+}
+
+var openaiProvateEndppointConnection = [{
+  groupId: 'account'
+  dnsZoneName: 'privatelink.openai.com'
+  resourceIds: [openai.outputs.id]
+}]
+
+var cosmosPrivateEndpointConnection = [{
+  groupId: 'sql'
+  dnsZoneName: 'privatelink.documents.azure.com'
+  resourceIds: [cosmosAccount.outputs.id]
+}]
+
+var privateEndpointConnections = concat(openaiProvateEndppointConnection, cosmosPrivateEndpointConnection)
+
+
+
+module privateEndpoints 'private-endpoints.bicep' = if (usePrivateEndpoint) {
+  name: 'privateEndpoints'
+  scope: rg
+  params: {
+    location: location
+    resourceToken: resourceToken
+    privateEndpointConnections: privateEndpointConnections
+    vnetName: usePrivateEndpoint ? isolation.outputs.vnetName : ''
+    vnetPeSubnetName: usePrivateEndpoint ? isolation.outputs.backendSubnetId : ''
+  }
+}
+
+// App Service with a repository
+module website 'website.bicep' = {
   name: 'resources'
   scope: rg
   params: {
     location: location
-    vnetName: 'vnet-${environmentName}'
-    appServicePlanTier: 'B1'
     resourceToken: resourceToken
-    usePrivateEndpoint: usePrivateEndpoint
-    publicNetworkAccess:  publicNetworkAccess
+    cosmosAccountName: cosmosAccount.outputs.name
+    hostingPlanName: hostingPlan.outputs.name
+    virtualNetworkSubnetId: usePrivateEndpoint ? isolation.outputs.appSubnetId : ''
   }
 }
 
 
-output AZURE_OPENAI_ENDPOINT string = resources.outputs.AZURE_OPENAI_ENDPOINT
-output AZURE_OPENAI_API_KEY string = resources.outputs.AZURE_OPENAI_API_KEY
+output AZURE_OPENAI_ENDPOINT string = openai.outputs.endpoint
+output AZURE_OPENAI_API_KEY string = openai.outputs.accountKey

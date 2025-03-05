@@ -50,7 +50,7 @@ azd env set AZURE_PUBLIC_NETWORK_ACCESS Disabled
 もしくは`.azure/{環境名}/.env`に以下のように記述します。
 
 ```bash
-AZURE_USE_PRIVATE_ENDPOINTS="true"
+AZURE_USE_PRIVATE_ENDPOINT="true"
 AZURE_PUBLIC_NETWORK_ACCESS="Disabled"
 ```
 
