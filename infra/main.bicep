@@ -54,10 +54,3 @@ module resources './resources.bicep' = {
 
 output AZURE_OPENAI_ENDPOINT string = resources.outputs.AZURE_OPENAI_ENDPOINT
 output AZURE_OPENAI_API_KEY string = resources.outputs.AZURE_OPENAI_API_KEY
-
-//debug NETWORKING
-output appSubnetId string = resources.outputs.appSubnetId
-output cosmosSubnetId string = resources.outputs.cosmosSubnetId
-output aoaiSubnetId string = resources.outputs.aoaiSubnetId
-output vnetName string = resources.outputs.vnetName
-output privateEndpointIds array = resources.outputs.privateEndpointIds
