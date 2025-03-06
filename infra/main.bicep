@@ -143,7 +143,7 @@ module cosmosAccount 'core/database/cosmos.bicep' = {
   }
 }
 
-var openaiProvateEndppointConnection = [{
+var openaiPrivateEndppointConnection = [{
   groupId: 'account'
   dnsZoneName: 'privatelink.openai.com'
   resourceIds: [openai1.outputs.id, openai2.outputs.id]
@@ -155,7 +155,7 @@ var cosmosPrivateEndpointConnection = [{
   resourceIds: [cosmosAccount.outputs.id]
 }]
 
-var privateEndpointConnections = concat(openaiProvateEndppointConnection, cosmosPrivateEndpointConnection)
+var privateEndpointConnections = concat(openaiPrivateEndppointConnection, cosmosPrivateEndpointConnection)
 
 
 
@@ -203,5 +203,5 @@ module website2 'website.bicep' = {
 output AZURE_OPENAI_ENDPOINT1 string = openai1.outputs.endpoint
 output AZURE_OPENAI_API_KEY1 string = openai1.outputs.accountKey
 
-output AZURE_OPENAI_ENDPOINT2 string = openai1.outputs.endpoint
-output AZURE_OPENAI_API_KEY2 string = openai1.outputs.accountKey
+output AZURE_OPENAI_ENDPOINT2 string = openai2.outputs.endpoint
+output AZURE_OPENAI_API_KEY2 string = openai2.outputs.accountKey
