@@ -26,7 +26,7 @@ module vnet './core/networking/vnet.bicep' = if (usePrivateEndpoint) {
     tags: tags
     subnets: [
       {
-        name: 'app-int-subnet'
+        name: 'app-int1-subnet'
         properties: {
           addressPrefix: '10.0.1.0/24'
           delegations: [
@@ -41,21 +41,24 @@ module vnet './core/networking/vnet.bicep' = if (usePrivateEndpoint) {
         }
       }
       {
-        name: 'backend-subnet'
+        name: 'app-int2-subnet'
         properties: {
           addressPrefix: '10.0.2.0/24'
+          delegations: [
+            {
+              id: appServicePlan.id
+              name: appServicePlan.name
+              properties: {
+                serviceName: 'Microsoft.Web/serverFarms'
+              }
+            }
+          ]
         }
       }
       {
-        name: 'cosmos-subnet'
+        name: 'backend-subnet'
         properties: {
           addressPrefix: '10.0.3.0/24'
-        }
-      }
-      {
-        name: 'aoai-subnet'
-        properties: {
-          addressPrefix: '10.0.4.0/24'
         }
       }
     ]
@@ -63,8 +66,9 @@ module vnet './core/networking/vnet.bicep' = if (usePrivateEndpoint) {
 }
 
 
-output appSubnetId string = usePrivateEndpoint ? vnet.outputs.vnetSubnets[0].id : ''
-output backendSubnetId string = usePrivateEndpoint ? vnet.outputs.vnetSubnets[1].id : ''
-output cosmosSubnetId string = usePrivateEndpoint ? vnet.outputs.vnetSubnets[2].id : ''
-output aoaiSubnetId string = usePrivateEndpoint ? vnet.outputs.vnetSubnets[3].id : ''
+output app1SubnetId string = usePrivateEndpoint ? vnet.outputs.vnetSubnets[0].id : ''
+output app2SubnetId string = usePrivateEndpoint ? vnet.outputs.vnetSubnets[1].id : ''
+output backendSubnetId string = usePrivateEndpoint ? vnet.outputs.vnetSubnets[2].id : ''
+// output cosmosSubnetId string = usePrivateEndpoint ? vnet.outputs.vnetSubnets[2].id : ''
+// output aoaiSubnetId string = usePrivateEndpoint ? vnet.outputs.vnetSubnets[2].id : ''
 output vnetName string = usePrivateEndpoint ? vnet.outputs.name : ''

@@ -76,12 +76,12 @@ module isolation 'network-isolation.bicep' = if (usePrivateEndpoint) {
   }
 }
 
-// Azure OpenAI
-module openai 'core/ai/cognitiveservices.bicep' = {
-  name: 'openai'
+// Azure OpenAI 1
+module openai1 'core/ai/cognitiveservices.bicep' = {
+  name: 'openai1'
   scope: rg
   params: {
-    name: 'aoai${abbrs.cognitiveServicesAccounts}${resourceToken}'
+    name: 'aoai1${abbrs.cognitiveServicesAccounts}${resourceToken}'
     location: openaiRegion
     sku: {
       name: 'S0'
@@ -96,7 +96,35 @@ module openai 'core/ai/cognitiveservices.bicep' = {
         }
         sku: {
           name: 'Standard'
-          capacity: 100
+          capacity: 50
+        }
+      }
+    ]
+    publicNetworkAccess: publicNetworkAccess
+  }
+}
+
+// Azure OpenAI 1
+module openai2 'core/ai/cognitiveservices.bicep' = {
+  name: 'openai2'
+  scope: rg
+  params: {
+    name: 'aoai2${abbrs.cognitiveServicesAccounts}${resourceToken}'
+    location: openaiRegion
+    sku: {
+      name: 'S0'
+    }
+    deployments: [
+      {
+        name: 'gpt-4o'
+        model: {
+          format: 'OpenAI'
+          name: deploymentName
+          version: deploymentVersion
+        }
+        sku: {
+          name: 'Standard'
+          capacity: 50
         }
       }
     ]
@@ -118,7 +146,7 @@ module cosmosAccount 'core/database/cosmos.bicep' = {
 var openaiProvateEndppointConnection = [{
   groupId: 'account'
   dnsZoneName: 'privatelink.openai.com'
-  resourceIds: [openai.outputs.id]
+  resourceIds: [openai1.outputs.id, openai2.outputs.id]
 }]
 
 var cosmosPrivateEndpointConnection = [{
@@ -144,18 +172,36 @@ module privateEndpoints 'private-endpoints.bicep' = if (usePrivateEndpoint) {
 }
 
 // App Service with a repository
-module website 'website.bicep' = {
-  name: 'resources'
+module website1 'website.bicep' = {
+  name: 'website1'
   scope: rg
   params: {
     location: location
+    webAppName: 'todo-app1-${resourceToken}'
     resourceToken: resourceToken
     cosmosAccountName: cosmosAccount.outputs.name
     hostingPlanName: hostingPlan.outputs.name
-    virtualNetworkSubnetId: usePrivateEndpoint ? isolation.outputs.appSubnetId : ''
+    virtualNetworkSubnetId: usePrivateEndpoint ? isolation.outputs.app1SubnetId : ''
+  }
+}
+
+// App Service with a repository
+module website2 'website.bicep' = {
+  name: 'website2'
+  scope: rg
+  params: {
+    location: location
+    webAppName: 'todo-app2-${resourceToken}'
+    resourceToken: resourceToken
+    cosmosAccountName: cosmosAccount.outputs.name
+    hostingPlanName: hostingPlan.outputs.name
+    virtualNetworkSubnetId: usePrivateEndpoint ? isolation.outputs.app2SubnetId : ''
   }
 }
 
 
-output AZURE_OPENAI_ENDPOINT string = openai.outputs.endpoint
-output AZURE_OPENAI_API_KEY string = openai.outputs.accountKey
+output AZURE_OPENAI_ENDPOINT1 string = openai1.outputs.endpoint
+output AZURE_OPENAI_API_KEY1 string = openai1.outputs.accountKey
+
+output AZURE_OPENAI_ENDPOINT2 string = openai1.outputs.endpoint
+output AZURE_OPENAI_API_KEY2 string = openai1.outputs.accountKey

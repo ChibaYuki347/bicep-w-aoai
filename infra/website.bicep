@@ -13,9 +13,11 @@ param databaseName string = 'Tasks'
 @description('The Cosmos DB container name.')
 param containerName string = 'Items'
 
-// resource token for the private endpoint
 @description('Resource token for the private endpoint')
 param resourceToken string
+
+@description('Web App Name')
+param webAppName string = 'todo-app-${resourceToken}'
 
 @description('Existing Cosmos DB account name')
 param cosmosAccountName string
@@ -35,7 +37,7 @@ resource hostingPlan 'Microsoft.Web/serverfarms@2021-03-01' existing = {
 }
 
 resource website 'Microsoft.Web/sites@2021-03-01' = {
-  name: 'todo-app-${resourceToken}'
+  name: webAppName
   location: location
   properties: {
     serverFarmId: hostingPlan.id
