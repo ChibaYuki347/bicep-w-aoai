@@ -38,7 +38,7 @@ azd down
 ### プライベートエンドポイントを利用する場合
 
 ```bash
-azd env set AZURE_USE_PRIVATE_ENDPOINTS true
+azd env set AZURE_USE_PRIVATE_ENDPOINT true
 ```
 
 さらに、Azure OpenAIとCosmosDBのパブリックアクセスを無効する場合
