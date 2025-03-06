@@ -9,6 +9,15 @@ param environmentName string
 @description('Primary location for all resources')
 param location string
 
+@description('Use Private Endpoint')
+param usePrivateEndpoint bool = false
+
+// public network access
+@description('Public network access value for all deployed resources')
+@allowed(['Enabled', 'Disabled'])
+param publicNetworkAccess string = 'Enabled'
+
+// Azure OpenAI
 // openai resouce region
 @description('Region for the OpenAI resource')
 @allowed(['eastus2', 'westus'])
@@ -22,8 +31,6 @@ param deploymentName string = 'gpt-4o'
 @description('Deployment version of the OpenAI resource')
 param deploymentVersion string = '2024-05-13'
 
-var abbrs = loadJsonContent('./abbreviations.json')
-
 // Tags that should be applied to all resources.
 // 
 // Note that 'azd-service-name' tags should be applied separately to service host resources.
@@ -32,6 +39,8 @@ var abbrs = loadJsonContent('./abbreviations.json')
 var tags = {
   'azd-env-name': environmentName
 }
+
+var abbrs = loadJsonContent('./abbreviations.json')
 
 // Generate a unique token to be used in naming resources.
 // Remove linter suppression after using.
@@ -44,12 +53,26 @@ resource rg 'Microsoft.Resources/resourceGroups@2022-09-01' = {
   tags: tags
 }
 
-// Cosmos DB + App Service
-module resources './resources.bicep' = {
-  name: 'resources'
+// App Service Plan
+module hostingPlan 'core/host/appserviceplan.bicep' = {
+  name: 'hostingPlan'
   scope: rg
   params: {
     location: location
+    hostingPlanName: 'todo-app${resourceToken}'
+    appServicePlanTier: 'B1'
+  }
+}
+
+// Private endpoint
+module isolation 'network-isolation.bicep' = if (usePrivateEndpoint) {
+  name: 'isolation'
+  scope: rg
+  params: {
+    location: location
+    vnetName: '${abbrs.networkVirtualNetworks}${resourceToken}'
+    appServicePlanName: hostingPlan.name
+    usePrivateEndpoint: true
   }
 }
 
@@ -60,7 +83,6 @@ module openai 'core/ai/cognitiveservices.bicep' = {
   params: {
     name: 'aoai${abbrs.cognitiveServicesAccounts}${resourceToken}'
     location: openaiRegion
-    tags: tags
     sku: {
       name: 'S0'
     }
@@ -78,11 +100,62 @@ module openai 'core/ai/cognitiveservices.bicep' = {
         }
       }
     ]
+    publicNetworkAccess: publicNetworkAccess
+  }
+}
+
+// Cosmos DB
+module cosmosAccount 'core/database/cosmos.bicep' = {
+  name: 'cosmos'
+  scope: rg
+  params: {
+    cosmosAccountName: toLower('cosmos${abbrs.documentDBDatabaseAccounts}${resourceToken}')
+    location: location
+    publicNetworkAccess: publicNetworkAccess
+  }
+}
+
+var openaiProvateEndppointConnection = [{
+  groupId: 'account'
+  dnsZoneName: 'privatelink.openai.com'
+  resourceIds: [openai.outputs.id]
+}]
+
+var cosmosPrivateEndpointConnection = [{
+  groupId: 'sql'
+  dnsZoneName: 'privatelink.documents.azure.com'
+  resourceIds: [cosmosAccount.outputs.id]
+}]
+
+var privateEndpointConnections = concat(openaiProvateEndppointConnection, cosmosPrivateEndpointConnection)
+
+
+
+module privateEndpoints 'private-endpoints.bicep' = if (usePrivateEndpoint) {
+  name: 'privateEndpoints'
+  scope: rg
+  params: {
+    location: location
+    resourceToken: resourceToken
+    privateEndpointConnections: privateEndpointConnections
+    vnetName: usePrivateEndpoint ? isolation.outputs.vnetName : ''
+    vnetPeSubnetName: usePrivateEndpoint ? isolation.outputs.backendSubnetId : ''
+  }
+}
+
+// App Service with a repository
+module website 'website.bicep' = {
+  name: 'resources'
+  scope: rg
+  params: {
+    location: location
+    resourceToken: resourceToken
+    cosmosAccountName: cosmosAccount.outputs.name
+    hostingPlanName: hostingPlan.outputs.name
+    virtualNetworkSubnetId: usePrivateEndpoint ? isolation.outputs.appSubnetId : ''
   }
 }
 
 
 output AZURE_OPENAI_ENDPOINT string = openai.outputs.endpoint
 output AZURE_OPENAI_API_KEY string = openai.outputs.accountKey
-output DEPLOYMENT_NAME string = deploymentName
-output API_VERSION string = '2024-05-01-preview'
