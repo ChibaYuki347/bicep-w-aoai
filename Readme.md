@@ -4,7 +4,7 @@ App ServiceとAzure OpenAIとCosmosDBを使ってプライベートエンドポ�
 
 ## 構成
 
-![Architecture](./docs/images/DuplicatedArchitecture.png)
+![Architecture](./docs/images/DuplicatedWithMonitorArchitecture.png)
 
 二つのApp Serviceを作成し、それぞれ別のAzure OpenAIに接続ができる。
 Cosmos DBは、二つのApp Serviceからのアクセスを許可する。

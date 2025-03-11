@@ -13,6 +13,18 @@
       },
       "usePrivateEndpoint": {
         "value": "${AZURE_USE_PRIVATE_ENDPOINT=false}"
+      },
+      "useApplicationInsights": {
+        "value": "${AZURE_USE_APPLICATION_INSIGHTS=true}"
+      },
+      "applicationInsightsName": {
+        "value": "${AZURE_APPLICATION_INSIGHTS}"
+      },
+      "applicationInsightsDashboardName": {
+        "value": "${AZURE_APPLICATION_INSIGHTS_DASHBOARD}"
+      },
+      "logAnalyticsName": {
+        "value": "${AZURE_LOG_ANALYTICS}"
       }
     }
 }

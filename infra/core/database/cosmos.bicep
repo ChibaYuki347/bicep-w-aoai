@@ -22,6 +22,7 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2022-05-15' = {
     ]
     databaseAccountOfferType: 'Standard'
     publicNetworkAccess: publicNetworkAccess
+    disableLocalAuth: false
   }
 }
 

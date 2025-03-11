@@ -31,6 +31,15 @@ param deploymentName string = 'gpt-4o'
 @description('Deployment version of the OpenAI resource')
 param deploymentVersion string = '2024-05-13'
 
+// Monitor
+param applicationInsightsDashboardName string = '' // Set in main.parameters.json
+param applicationInsightsName string = '' // Set in main.parameters.json
+param logAnalyticsName string = '' // Set in main.parameters.json
+
+@description('Use Application Insights for monitoring and performance tracing')
+param useApplicationInsights bool = false
+
+
 // Tags that should be applied to all resources.
 // 
 // Note that 'azd-service-name' tags should be applied separately to service host resources.
@@ -182,6 +191,8 @@ module website1 'website.bicep' = {
     cosmosAccountName: cosmosAccount.outputs.name
     hostingPlanName: hostingPlan.outputs.name
     virtualNetworkSubnetId: usePrivateEndpoint ? isolation.outputs.app1SubnetId : ''
+    applicationInsightsName: useApplicationInsights ? monitoring.outputs.applicationInsightsName : ''
+    logAnalyticsWorkspaceId: useApplicationInsights ? monitoring.outputs.logAnalyticsWorkspaceId : ''
   }
 }
 
@@ -196,8 +207,40 @@ module website2 'website.bicep' = {
     cosmosAccountName: cosmosAccount.outputs.name
     hostingPlanName: hostingPlan.outputs.name
     virtualNetworkSubnetId: usePrivateEndpoint ? isolation.outputs.app2SubnetId : ''
+    applicationInsightsName: useApplicationInsights ? monitoring.outputs.applicationInsightsName : ''
+    logAnalyticsWorkspaceId: useApplicationInsights ? monitoring.outputs.logAnalyticsWorkspaceId : ''
   }
 }
+
+// Monitor
+module monitoring 'core/monitor/monitoring.bicep' = if (useApplicationInsights){
+  name: 'logAnalytics-${resourceToken}'
+  scope: rg
+  params: {
+    location: location
+    tags: tags
+    applicationInsightsName: !empty(applicationInsightsName)
+    ? applicationInsightsName
+    : '${abbrs.insightsComponents}${resourceToken}'
+    logAnalyticsName: !empty(logAnalyticsName)
+    ? logAnalyticsName
+    : '${abbrs.operationalInsightsWorkspaces}${resourceToken}'
+  publicNetworkAccess: publicNetworkAccess
+  }
+}
+
+module applicationInsightsDashboard 'core/monitor/applicationinsights-dashboard.bicep' = if (useApplicationInsights) {
+  name: 'application-insights-dashboard'
+  scope: rg
+  params: {
+    name: !empty(applicationInsightsDashboardName)
+      ? applicationInsightsDashboardName
+      : '${abbrs.portalDashboards}${resourceToken}'
+    location: location
+    applicationInsightsName: useApplicationInsights ? monitoring.outputs.applicationInsightsName : ''
+  }
+}
+
 
 
 output AZURE_OPENAI_ENDPOINT1 string = openai1.outputs.endpoint
@@ -205,3 +248,5 @@ output AZURE_OPENAI_API_KEY1 string = openai1.outputs.accountKey
 
 output AZURE_OPENAI_ENDPOINT2 string = openai2.outputs.endpoint
 output AZURE_OPENAI_API_KEY2 string = openai2.outputs.accountKey
+
+
